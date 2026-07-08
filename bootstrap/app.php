@@ -13,7 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+    $middleware->redirectGuestsTo(fn() => response()->json(['message' => 'Non authentifié.'], 401));    
+    $middleware->alias([
+        'role'         => \App\Http\Middleware\RoleMiddleware::class,
+        'active.user'  => \App\Http\Middleware\ActiveUserMiddleware::class,
+        'log.activity' => \App\Http\Middleware\LogActivityMiddleware::class,
+    ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
