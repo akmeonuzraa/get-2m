@@ -10,26 +10,31 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-    {
-        Schema::create('spaces', function (Blueprint $table) {
+{
+    Schema::create('spaces', function (Blueprint $table) {
         $table->id();
         $table->string('name');
         $table->text('description')->nullable();
         $table->enum('type', ['public', 'private'])->default('public');
-        $table->string('cover_image')->nullable();  // image de couverture optionnelle
-        $table->foreignId('created_by')
-              ->constrained('users')
-              ->onDelete('cascade');
+        $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
         $table->timestamps();
-        $table->softDeletes(); // permet de supprimer sans perdre les données
     });
-    }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('spaces');
-    }
+    Schema::create('space_members', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('space_id')->constrained()->onDelete('cascade');
+        $table->foreignId('user_id')->constrained()->onDelete('cascade');
+        $table->enum('role', ['admin', 'contributeur', 'lecteur'])->default('lecteur');
+        $table->timestamps();
+    });
+}
+
+public function down(): void
+{
+    Schema::dropIfExists('space_members');
+    Schema::dropIfExists('spaces');
+}
 };
+
+
+
