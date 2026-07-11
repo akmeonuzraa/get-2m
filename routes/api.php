@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\SpaceController;
+use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\FolderController;
 
 // Routes publiques
 Route::post('/login', [AuthController::class, 'login']);
@@ -45,4 +47,22 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     });
 });
 
+
+Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+
+    // Folders
+    Route::get('/folders', [FolderController::class, 'index']);
+    Route::post('/folders', [FolderController::class, 'store']);
+    Route::put('/folders/{folder}', [FolderController::class, 'update']);
+    Route::delete('/folders/{folder}', [FolderController::class, 'destroy']);
+
+    // Documents
+    Route::get('/documents', [DocumentController::class, 'index']);
+    Route::post('/documents', [DocumentController::class, 'store']);
+    Route::get('/documents/trashed', [DocumentController::class, 'trashed']);
+    Route::get('/documents/{document}', [DocumentController::class, 'show']);
+    Route::patch('/documents/{document}/trash', [DocumentController::class, 'trash']);
+    Route::patch('/documents/{document}/restore', [DocumentController::class, 'restore']);
+    Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
+});
 
