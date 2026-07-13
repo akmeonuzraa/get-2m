@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\NotificationController;
 
 class DocumentController extends Controller
 {
@@ -54,7 +55,21 @@ class DocumentController extends Controller
             'current_version'   => 1,
             'status'            => 'active',
         ]);
-
+          // Notifier les membres de l'espace
+if ($document->space_id) {
+    $space = \App\Models\Space::with('members')->find($document->space_id);
+    foreach ($space->members as $member) {
+        if ($member->id !== $request->user()->id) {
+            NotificationController::notify(
+                $member->id,
+                'document_uploaded',
+                'Nouveau document',
+                $request->user()->name . ' a déposé "' . $document->title . '"',
+                $document
+            );
+        }
+    }
+}
         DocumentVersion::create([
             'document_id'       => $document->id,
             'version_number'    => 1,

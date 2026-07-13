@@ -8,6 +8,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FolderController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\NotificationController;
 
 // Routes publiques
 Route::post('/login', [AuthController::class, 'login']);
@@ -87,4 +88,12 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::get('/news/{news}/comments', [CommentController::class, 'index']);
     Route::post('/news/{news}/comments', [CommentController::class, 'store']);
     Route::delete('/news/{news}/comments/{comment}', [CommentController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::patch('/notifications/{notification}/mark-read', [NotificationController::class, 'markAsRead']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
 });
