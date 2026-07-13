@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -50,4 +50,11 @@ class User extends Authenticatable
         return $this->role === 'responsable';
     }
     
+    public function spaces(): BelongsToMany
+    {
+        return $this->belongsToMany(Space::class, 'space_members')
+        ->withPivot('role', 'joined_at')
+        ->withTimestamps();
+    }
+
 }

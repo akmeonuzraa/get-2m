@@ -14,8 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
     $middleware->alias([
-        'role'        => \App\Http\Middleware\CheckRole::class,
-        'log.activity' => \App\Http\Middleware\LogActivity::class,
+        'role'          => \App\Http\Middleware\CheckRole::class,
+        'log.activity'  => \App\Http\Middleware\LogActivity::class,
+        'cors'          => \App\Http\Middleware\Cors::class,
+        'request.timing'=> \App\Http\Middleware\RequestTiming::class,
+        'rate.limit'    => \App\Http\Middleware\RateLimit::class,
+        'validate.json' => \App\Http\Middleware\ValidateJson::class,
     ]);
 })
     ->withExceptions(function (Exceptions $exceptions): void {

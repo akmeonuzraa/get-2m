@@ -18,7 +18,9 @@
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^12.5.12"
+        "phpunit/phpunit": "^12.5.12",
+        "phpstan/phpstan": "^1.10",
+        "nunomaduro/larastan": "^2.1"
     },
     "autoload": {
         "psr-4": {
@@ -40,6 +42,15 @@
             "@php artisan migrate --force",
             "npm install --ignore-scripts",
             "npm run build"
+        ],
+        "security:audit": [
+            "composer audit --no-interaction || true"
+        ],
+        "static:analysis": [
+            "vendor/bin/phpstan analyse --memory-limit=1G || true"
+        ],
+        "post-install-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
