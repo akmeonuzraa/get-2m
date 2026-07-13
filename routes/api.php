@@ -6,6 +6,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\SpaceController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FolderController;
+use App\Http\Controllers\NewsController;
+use App\Http\Controllers\CommentController;
 
 // Routes publiques
 Route::post('/login', [AuthController::class, 'login']);
@@ -66,3 +68,23 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy']);
 });
 
+Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+
+    // News — lecture pour tous
+    Route::get('/news', [NewsController::class, 'index']);
+    Route::get('/news/{news}', [NewsController::class, 'show']);
+
+    // News — écriture pour admin + responsable
+    Route::middleware('role:admin,responsable')->group(function () {
+        Route::post('/news', [NewsController::class, 'store']);
+        Route::put('/news/{news}', [NewsController::class, 'update']);
+        Route::patch('/news/{news}/publish', [NewsController::class, 'publish']);
+        Route::patch('/news/{news}/archive', [NewsController::class, 'archive']);
+        Route::delete('/news/{news}', [NewsController::class, 'destroy']);
+    });
+
+    // Comments — tous les users connectés
+    Route::get('/news/{news}/comments', [CommentController::class, 'index']);
+    Route::post('/news/{news}/comments', [CommentController::class, 'store']);
+    Route::delete('/news/{news}/comments/{comment}', [CommentController::class, 'destroy']);
+});
