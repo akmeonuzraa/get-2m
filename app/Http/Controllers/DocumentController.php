@@ -7,6 +7,7 @@ use App\Services\AiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\Mime\MimeTypes;
+use Throwable;
 
 class DocumentController extends BaseCrudController
 {
