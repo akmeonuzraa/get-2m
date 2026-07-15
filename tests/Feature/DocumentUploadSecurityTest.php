@@ -41,7 +41,7 @@ class DocumentUploadSecurityTest extends TestCase
     }
 
     /**
-     * Test: Upload a valid PDF file succeeds
+     * Test: Upload a real PDF file succeeds
      */
     public function test_upload_valid_pdf_file_succeeds(): void
     {
@@ -64,24 +64,24 @@ class DocumentUploadSecurityTest extends TestCase
     }
 
     /**
-     * Test: Upload a valid PNG image succeeds
+     * Test: Upload a valid ZIP/archive file succeeds
      */
-    public function test_upload_valid_png_image_succeeds(): void
+    public function test_upload_valid_zip_file_succeeds(): void
     {
-        // Create a real PNG file (PNG magic bytes)
-        $pngContent = "\x89PNG\r\n\x1a\n";
-        $file = UploadedFile::fake()->createWithContent('image.png', $pngContent);
+        // ZIP magic bytes + minimal content
+        $zipContent = "PK\x03\x04" . str_repeat("\x00", 100);
+        $file = UploadedFile::fake()->createWithContent('archive.zip', $zipContent);
 
         $response = $this->actingAs($this->user, 'sanctum')->post('/api/documents', [
-            'title' => 'Valid PNG Image',
+            'title' => 'Valid ZIP Archive',
             'file' => $file,
             'space_id' => $this->space->id,
         ]);
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('documents', [
-            'title' => 'Valid PNG Image',
-            'original_filename' => 'image.png',
+            'title' => 'Valid ZIP Archive',
+            'original_filename' => 'archive.zip',
         ]);
     }
 
