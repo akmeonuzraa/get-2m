@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Services\AiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\Mime\MimeTypes;
 
 class DocumentController extends BaseCrudController
 {
@@ -57,6 +58,50 @@ class DocumentController extends BaseCrudController
     }
 
     /**
+     * Valide le MIME-type réel du fichier uploadé via finfo + Symfony MimeTypes.
+     * Retourne true si le type réel du fichier correspond à une extension whitelistée.
+     */
+    protected function validateRealMimeType(\Illuminate\Http\UploadedFile $file): bool
+    {
+        // Whitelisted extensions and their accepted MIME types
+        $allowedMimes = [
+            'pdf'  => ['application/pdf'],
+            'txt'  => ['text/plain'],
+            'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+            'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+            'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+            'jpg'  => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'png'  => ['image/png'],
+            'gif'  => ['image/gif'],
+            'zip'  => ['application/zip', 'application/x-zip-compressed'],
+        ];
+
+        $extension = strtolower($file->getClientOriginalExtension());
+        
+        // Check if extension is whitelisted
+        if (!isset($allowedMimes[$extension])) {
+            return false;
+        }
+
+        // Get real MIME type using finfo (most reliable)
+        $realMimeType = @finfo_file(finfo_open(FILEINFO_MIME_TYPE), $file->getRealPath());
+        
+        if (!$realMimeType) {
+            // Fallback to Symfony MIME types if finfo fails
+            $mimeTypes = new MimeTypes();
+            $realMimeType = $mimeTypes->guessMimeType($file->getRealPath());
+        }
+
+        if (!$realMimeType) {
+            return false;
+        }
+
+        // Check if real MIME type matches whitelisted types for this extension
+        return in_array($realMimeType, $allowedMimes[$extension], true);
+    }
+
+    /**
      * Surcharge store() pour gérer l'upload de fichier + création
      * automatique d'une version 1 dans document_versions.
      * Appelle AiService pour la classification du texte si disponible.
@@ -75,6 +120,15 @@ class DocumentController extends BaseCrudController
 
         $validated = $request->validate($this->storeRules());
         $file = $request->file('file');
+
+        // Validate real MIME type to prevent spoofed files
+        if (!$this->validateRealMimeType($file)) {
+            return response()->json([
+                'message' => 'Le type de fichier réel ne correspond pas à l\'extension fournie.',
+                'error' => 'invalid_file_type'
+            ], 422);
+        }
+
         $path = $file->store('documents');
 
         // Prepare keywords from classification or use provided ones
