@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    # bind the Ollama port to localhost only to avoid public exposure
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ./ollama-data:/var/lib/ollama
+    environment:
+      - OLLAMA_DATA_DIR=/var/lib/ollama
+    shm_size: '1g'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:11434/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    volumes:
+      - ./ollama-data:/var/lib/ollama
+    entrypoint: ["sh", "-c", "\n  echo 'Waiting for Ollama HTTP endpoint...';\n  until curl -sSf http://ollama:11434/ >/dev/null 2>&1; do sleep 1; done;\n  echo 'Ollama reachable, pulling model (mistral preferred)...';\n  ollama pull mistral || ollama pull llama3:8b || true;\n  echo 'Model pull attempted.'\n"]
+    restart: 'no'
+
+  ged-ai-api:
+    build:
+      context: ./ged_ai_api
+      dockerfile: Dockerfile
+    depends_on:
+      - ollama
+      - ollama-init
+    environment:
+      - GED_AI_API_URL=http://127.0.0.1:11434
+    # bind the API to localhost only
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge

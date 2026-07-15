@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\Document;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 
@@ -119,5 +120,82 @@ class ReportService
                 'status_distribution' => $statusDist,
             ];
         });
+    }
+
+    /**
+     * Generate a human-readable summary using local Ollama-backed service.
+     * Caches the result to avoid repeated LLM calls.
+     *
+     * @param array $metrics Metrics array as returned by getActivityReport()
+     * @param int $cacheMinutes
+     * @return string
+     */
+    public function generateSummary(array $metrics, int $cacheMinutes = 60): string
+    {
+        $start = data_get($metrics, 'period.start', 'period');
+        $end = data_get($metrics, 'period.end', 'period');
+        $cacheKey = sprintf('reports:summary:%s:%s', $start, $end);
+
+        return Cache::remember($cacheKey, $cacheMinutes * 60, function () use ($metrics, $start, $end) {
+            $apiUrl = rtrim(env('GED_AI_API_URL', 'http://127.0.0.1:8000'), '/') . '/report-summary';
+            try {
+                $response = Http::timeout(5)->post($apiUrl, $metrics);
+                if (! $response->successful()) {
+                    Log::warning('GED AI API responded with status '.$response->status());
+                    return $this->buildFallbackSummary($metrics);
+                }
+                $body = $response->json();
+                if (isset($body['hallucination']) && $body['hallucination'] === true) {
+                    Log::warning('GED AI summary flagged hallucination, using fallback template.');
+                    return $this->buildFallbackSummary($metrics);
+                }
+                return $body['summary'] ?? $this->buildFallbackSummary($metrics);
+            } catch (\Throwable $e) {
+                Log::error('Error calling GED AI API: '.$e->getMessage());
+                return $this->buildFallbackSummary($metrics);
+            }
+        });
+    }
+
+    /**
+     * Builds a safe fallback summary (no LLM) using only supplied metrics.
+     */
+    protected function buildFallbackSummary(array $metrics): string
+    {
+        $period = data_get($metrics, 'period', []);
+        $start = data_get($period, 'start', '');
+        $end = data_get($period, 'end', '');
+        $created = data_get($metrics, 'counts.created', 0);
+
+        // get top service and user if present
+        $topService = 'N/A';
+        $topServiceCnt = 0;
+        $byService = data_get($metrics, 'by_service', []);
+        if (!empty($byService) && is_array($byService)) {
+            foreach ($byService as $svc => $cnt) {
+                if ($cnt > $topServiceCnt) {
+                    $topService = $svc;
+                    $topServiceCnt = $cnt;
+                }
+            }
+        }
+
+        $topUser = 'N/A';
+        $topUserCnt = 0;
+        $topUsers = data_get($metrics, 'top_users', []);
+        if (!empty($topUsers) && is_array($topUsers)) {
+            $first = reset($topUsers);
+            if (is_array($first)) {
+                $topUser = $first['name'] ?? ($first['user_id'] ?? 'N/A');
+                $topUserCnt = $first['count'] ?? 0;
+            }
+        }
+
+        $sentences = [];
+        $sentences[] = sprintf('Période %s à %s : %d documents créés.', $start, $end, $created);
+        $sentences[] = sprintf('Top service : %s (%d documents).', $topService, $topServiceCnt);
+        $sentences[] = sprintf('Top utilisateur : %s (%d actions).', $topUser, $topUserCnt);
+
+        return implode(' ', $sentences);
     }
 }
