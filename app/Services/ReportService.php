@@ -136,8 +136,8 @@ class ReportService
         $end = data_get($metrics, 'period.end', 'period');
         $cacheKey = sprintf('reports:summary:%s:%s', $start, $end);
 
-        return Cache::remember($cacheKey, $cacheMinutes * 60, function () use ($metrics, $start, $end) {
-            $apiUrl = rtrim(env('GED_AI_API_URL', 'http://127.0.0.1:8000'), '/') . '/report-summary';
+        return Cache::remember($cacheKey, $cacheMinutes * 60, function () use ($metrics) {
+            $apiUrl = rtrim(config('services.ai.url'), '/') . '/report-summary';
             try {
                 $response = Http::timeout(5)->post($apiUrl, $metrics);
                 if (! $response->successful()) {
