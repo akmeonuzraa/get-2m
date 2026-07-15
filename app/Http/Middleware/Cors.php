@@ -18,8 +18,8 @@ class Cors
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $allowedOrigin = env('CORS_ALLOWED_ORIGIN', null);
-        $allowedOriginsList = env('CORS_ALLOWED_ORIGINS', null);
+        $allowedOrigin = config('cors.allowed_origin', null);
+        $allowedOriginsList = config('cors.allowed_origins', null);
 
         $origin = $request->headers->get('Origin');
 
@@ -40,8 +40,8 @@ class Cors
         }
 
         $headers = [
-            'Access-Control-Allow-Methods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Requested-With, Accept',
+            'Access-Control-Allow-Methods' => config('cors.allow_methods'),
+            'Access-Control-Allow-Headers' => config('cors.allow_headers'),
         ];
 
         if ($setOrigin !== null) {

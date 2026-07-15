@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         'request.timing'=> \App\Http\Middleware\RequestTiming::class,
         'rate.limit'    => \App\Http\Middleware\RateLimit::class,
         'validate.json' => \App\Http\Middleware\ValidateJson::class,
+        'api.envelope'  => \App\Http\Middleware\ApiEnvelope::class,
     ]);
 })
     ->withExceptions(function (Exceptions $exceptions): void {

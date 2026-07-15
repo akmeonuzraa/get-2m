@@ -1,5 +1,5 @@
 includes:
-    - vendor/nunomaduro/larastan/extension.neon
+    - vendor/larastan/larastan/extension.neon
 
 parameters:
     level: 5
@@ -8,4 +8,3 @@ parameters:
         - routes
     excludePaths:
         - tests
-    checkGenericClassInNonGenericObjectType: false

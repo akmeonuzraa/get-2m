@@ -23,11 +23,28 @@ class LogActivity
 
         // On ne log que si la requête a réussi (2xx) et l'utilisateur est authentifié
         if ($user && $response->getStatusCode() < 300) {
+            $routeDoc = $request->route('document');
+
+            $entityType = 'unknown';
+            $entityId = null;
+
+            if ($routeDoc instanceof \App\Models\Document) {
+                $entityType = 'Document';
+                $entityId = $routeDoc->id;
+            } elseif (is_numeric($routeDoc) || is_string($routeDoc)) {
+                $entityType = 'Document';
+                $entityId = $routeDoc;
+            } else {
+                $route = $request->route();
+                $entityType = $route ? ($route->getName() ?? 'unknown') : 'unknown';
+                $entityId = $request->route('id') ?? null;
+            }
+
             ActivityLog::create([
                 'user_id'     => $user->id,
                 'action'      => $action,
-                'entity_type' => $request->route('document') ? 'Document' : ($request->route()?->getName() ?? 'unknown'),
-                'entity_id'   => $request->route('document')?->id ?? $request->route('id'),
+                'entity_type' => $entityType,
+                'entity_id'   => $entityId,
                 'metadata'    => [
                     'method' => $request->method(),
                     'path'   => $request->path(),

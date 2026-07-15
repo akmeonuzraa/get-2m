@@ -54,17 +54,25 @@ class Handler extends ExceptionHandler
         ]);
 
         // For API requests, return a JSON response with safe content for 5xx
-        if ($request instanceof Request && $request->is('api/*')) {
-            if ($status >= 500 && ! config('app.debug')) {
-                return response()->json(['message' => 'Internal Server Error'], $status);
-            }
+        // Determine whether request is an API request safely
+        $isApi = false;
+        try {
+        $isApi = $request->is('api/*');
+        } catch (\Throwable $_) {
+        $isApi = false;
+        }
 
-            $payload = ['message' => $e->getMessage()];
-            if (config('app.debug')) {
-                $payload['exception'] = get_class($e);
-            }
+        if ($isApi) {
+        if ($status >= 500 && ! config('app.debug')) {
+            return response()->json(['error' => ['code' => $status, 'message' => 'Internal Server Error', 'details' => null]], $status);
+        }
 
-            return response()->json($payload, $status);
+        $payload = ['error' => ['code' => $status, 'message' => $e->getMessage(), 'details' => null]];
+        if (config('app.debug')) {
+            $payload['error']['exception'] = get_class($e);
+        }
+
+        return response()->json($payload, $status);
         }
 
         return parent::render($request, $e);
