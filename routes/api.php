@@ -9,7 +9,8 @@ use App\Http\Controllers\FolderController;
 use App\Http\Controllers\NewsController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\NotificationController;
-
+use App\Http\Controllers\SearchController;
+use App\Http\Controllers\DashboardController;
 // Routes publiques
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
@@ -96,4 +97,11 @@ Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
     Route::patch('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
     Route::patch('/notifications/{notification}/mark-read', [NotificationController::class, 'markAsRead']);
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+});
+
+
+
+Route::middleware(['auth:sanctum', 'active.user'])->group(function () {
+    Route::get('/search', [SearchController::class, 'search']);
+    Route::get('/dashboard', [DashboardController::class, 'index']);
 });
