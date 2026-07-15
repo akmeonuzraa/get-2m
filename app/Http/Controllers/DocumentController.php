@@ -40,7 +40,7 @@ class DocumentController extends BaseCrudController
         return [
             'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
-            'file'        => 'required|file|max:20480', // 20 Mo
+            'file'        => 'required|file|max:20480|mimes:pdf,docx,xlsx,pptx,txt,jpg,jpeg,png,gif,zip', // 20 Mo, whitelist extensions
             'space_id'    => 'nullable|exists:spaces,id',
             'folder_id'   => 'nullable|exists:folders,id',
             'keywords'    => 'nullable|array',
