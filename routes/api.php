@@ -10,6 +10,7 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middle
 
 Route::middleware(['auth:sanctum','cors','request.timing','throttle:60,1','api.envelope'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
     Route::get('/me', [AuthController::class, 'me']);
 });
 

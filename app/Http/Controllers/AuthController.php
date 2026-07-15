@@ -132,4 +132,23 @@ class AuthController extends Controller
             'message' => 'Token invalide ou expiré.'
         ], 400);
     }
+
+    //  Rafraîchir le token d'accès
+    public function refresh(Request $request)
+    {
+        $user = $request->user();
+        
+        // Révoquer le token actuel
+        $user->currentAccessToken()->delete();
+
+        // Créer un nouveau token
+        $token = $user->createToken('auth_token')->plainTextToken;
+        $expiresAt = now()->addHours(24)->toIso8601String();
+
+        return response()->json([
+            'message'    => 'Token rafraîchi avec succès.',
+            'token'      => $token,
+            'expires_at' => $expiresAt,
+        ]);
+    }
 }
