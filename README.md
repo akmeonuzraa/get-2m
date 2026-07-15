@@ -1,58 +1,170 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# GET-2M — Plateforme Collaborative & GED (SOREAD-2M)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Plateforme collaborative interne intégrant une Gestion Électronique de Documents
+(GED), développée pour le Département Systèmes IT et Développement de SOREAD-2M.
 
-## About Laravel
+Architecture hybride :
+- **Laravel (PHP)** — backend métier : authentification, CRUD, permissions, API REST
+- **Python (notebooks → FastAPI)** — module IA : classification, recherche
+  sémantique, résumé de documents ; LLM local (Ollama) pour les rapports d'activité
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📁 Structure du dépôt
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+get-2m/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/        # AuthController, DocumentController, ReportController...
+│   │   └── Middleware/         # ApiEnvelope, CheckRole, Cors, LogActivity,
+│   │                           # RateLimit, RequestTiming, ValidateJson
+│   ├── Models/                 # User, Document, DocumentVersion, Folder, Space,
+│   │                           # SpaceMember, ActivityLog
+│   ├── Services/
+│   └── Exceptions/
+├── database/
+│   ├── migrations/             # users, spaces, documents, folders, comments,
+│   │                           # activity_logs, news, notifications...
+│   ├── seeders/
+│   └── factories/
+├── routes/
+│   └── api.php                 # /login, /me, /documents, /reports/activity...
+├── ged-ai/                     # Notebooks Python (source de vérité du module IA)
+│   ├── 01_extraction_texte.ipynb
+│   ├── 02_classification.ipynb
+│   ├── 03_embeddings_recherche.ipynb
+│   ├── 04_resume.ipynb
+│   ├── utils.py
+│   ├── summary_tool.py
+│   └── artifacts/               # généré par les notebooks (csv, joblib, embeddings)
+├── ged_ai_api/                  # Service FastAPI — résumé de rapports via Ollama
+│   ├── main.py
+│   ├── routers/report_summary.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── docs/
+│   └── laravel_report_snippet.md
+├── docker-compose.yml           # Ollama + ged-ai-api
+├── phpstan.neon / phpstan-baseline.neon
+├── composer.json / package.json
+└── .env.example
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## 🧱 Stack technique
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| Couche | Technologie |
+|---|---|
+| Backend | Laravel 11 (PHP 8.3) |
+| ORM | Eloquent |
+| Base de données | MySQL (SQLite en local par défaut, voir `.env.example`) |
+| Authentification | Laravel Sanctum |
+| Autorisation (RBAC) | Middleware `CheckRole` (rôles : `admin`, `responsable`, `user`) |
+| Cache / Sessions | Redis (recommandé en production) |
+| Analyse statique | PHPStan / Larastan (niveau 5) |
+| Module IA — exploration | Notebooks Jupyter (`ged-ai/`) : scikit-learn, sentence-transformers, sumy, XGBoost |
+| Module IA — production | Service FastAPI (`ged_ai_api/`) |
+| Résumé de rapports | LLM local via Ollama (Mistral 7B / Llama 3 8B) — aucune API payante |
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 🔐 Sécurité (middlewares Laravel)
 
-## Security Vulnerabilities
+Chaîne de middlewares appliquée aux routes de l'API (`routes/api.php`) :
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- **`Cors`** — restreint les origines autorisées
+- **`RequestTiming`** — logue chaque requête (méthode, durée, statut)
+- **`throttle:*`** — rate limiting natif Laravel (ex. `throttle:10,1` sur `/login`)
+- **`RateLimit`** — classe complémentaire, disponible pour un contrôle plus fin (Redis recommandé pour l'atomicité en environnement multi-instances)
+- **`auth:sanctum`** — authentification par token
+- **`CheckRole`** — contrôle d'accès par rôle (`role:admin,responsable,user`)
+- **`ValidateJson`** — valide que le body est du JSON correctement formé avant la validation métier
+- **`LogActivity`** — journalise les actions sensibles (ex. `log.activity:document.delete`)
+- **`ApiEnvelope`** — uniformise toutes les réponses JSON (succès et erreurs) selon `{ success, data|error }`
+- **`ApiException` / Handler** — centralise la gestion des exceptions custom
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 🤖 Module IA — vue d'ensemble
+
+Deux volets distincts, développés séparément :
+
+### 1. Classification, recherche sémantique, résumé de documents (`ged-ai/`)
+
+Développé et validé en notebooks Jupyter avant tout export vers un service de
+production — **les notebooks sont la source de vérité**, pas le service.
+
+| Notebook | Rôle | Artefacts produits |
+|---|---|---|
+| `01_extraction_texte.ipynb` | Extraction PDF/DOCX + nettoyage | `documents_extraits.csv` |
+| `02_classification.ipynb` | TF-IDF + KNN/RandomForest/XGBoost | `best_classifier.joblib`, `tfidf_vectorizer.joblib`, `label_encoder.joblib` |
+| `03_embeddings_recherche.ipynb` | Embeddings sémantiques + recherche cosinus | `embeddings.npy`, `embeddings_meta.csv` |
+| `04_resume.ipynb` | Résumé extractif (sumy) + option abstractive | `summary_tool.py` |
+
+Aucune API payante n'est utilisée : `sentence-transformers` et les modèles
+HuggingFace tournent en local. Ces notebooks incluent un mode de repli
+automatique (TF-IDF+SVD) si le modèle ne peut pas être téléchargé — en
+production, le modèle doit être pré-téléchargé et mis en cache dans l'image
+Docker plutôt que de dépendre du fallback. Voir `ged-ai/` pour le détail.
+
+### 2. Résumé automatique des rapports d'activité (`ged_ai_api/`)
+
+Service FastAPI séparé, appelé par Laravel, qui génère un résumé en langage
+naturel des métriques d'activité (documents créés, top catégories, top
+utilisateurs) via un LLM local **Ollama** — aucune donnée ne sort du réseau
+interne 2M.
+
+- Endpoint : `POST /report-summary`
+- Garde-fou anti-hallucination : les chiffres cités dans le résumé sont
+  vérifiés automatiquement contre les métriques fournies ; en cas d'écart, un
+  résumé template (sans LLM) est retourné à la place
+- Voir `ged_ai_api/README.md` pour l'installation détaillée d'Ollama et le
+  contrat d'API complet
+
+---
+
+## 🚀 Démarrage rapide
+
+### Backend Laravel
+
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+
+### Module IA — notebooks
+
+```bash
+cd ged-ai
+pip install -r requirements.txt   # ou installer manuellement les dépendances listées dans le notebook 01
+jupyter notebook
+# exécuter les notebooks dans l'ordre 01 → 02 → 03 → 04
+```
+
+### Service FastAPI + Ollama (résumé de rapports)
+
+```bash
+docker-compose up --build
+```
+
+Ollama et le service FastAPI sont exposés uniquement sur `127.0.0.1` (aucune
+exposition publique). Voir `ged_ai_api/README.md` si Docker n'est pas
+autorisé sur l'infrastructure interne (installation manuelle d'Ollama).
+
+---
+
+## ✅ Qualité de code
+
+```bash
+composer audit              # audit des dépendances PHP
+vendor/bin/phpstan analyse  # analyse statique (config progressive : phpstan.neon + baseline)
+php artisan test             # tests Pest/PHPUnit
+```
+
+À intégrer en CI (GitHub Actions) : `composer audit` + `phpstan` + tests à
+chaque pull request.
