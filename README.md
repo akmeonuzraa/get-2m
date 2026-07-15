@@ -1,12 +1,56 @@
 # GET-2M — Plateforme Collaborative & GED (SOREAD-2M)
 
-Plateforme collaborative interne intégrant une Gestion Électronique de Documents
-(GED), développée pour le Département Systèmes IT et Développement de SOREAD-2M.
+**Une plateforme collaborative et de gestion électronique de documents (GED) pour le Département Systèmes IT et Développement de SOREAD-2M.**
 
-Architecture hybride :
-- **Laravel (PHP)** — backend métier : authentification, CRUD, permissions, API REST
-- **Python (notebooks → FastAPI)** — module IA : classification, recherche
-  sémantique, résumé de documents ; LLM local (Ollama) pour les rapports d'activité
+Intégrant l'authentification, la gestion des espaces collaboratifs, le versioning de documents, et des capacités d'intelligence artificielle pour la classification, la recherche sémantique, et la génération de rapports automatiques.
+
+### 🎯 Objectifs principaux
+
+- ✅ Centraliser et versionner les documents pour tous les collaborateurs
+- ✅ Gérer les permissions et les rôles (admin, responsable, utilisateur)
+- ✅ Fournir une recherche intelligente par embeddings sémantiques
+- ✅ Classifier automatiquement les documents (catégories, étiquettes)
+- ✅ Générer des rapports d'activité résumés via IA locale
+- ✅ Tracer toutes les actions (audit logs) pour la conformité
+
+### 🏗️ Architecture technique
+
+| Composant | Technologie | Rôle |
+|-----------|-------------|------|
+| **Backend** | Laravel 11 (PHP 8.3) + Eloquent ORM | API REST, métier, authentification, permissions |
+| **IA — Exploration** | Jupyter Notebooks + scikit-learn | Classification, embeddings, résumés (source de vérité) |
+| **IA — Production** | FastAPI + Ollama | Service de résumé de rapports, LLM local |
+| **Base de données** | MySQL / SQLite | Stockage persistant (utilisateurs, documents, espaces) |
+| **Cache** | Redis | Optimisation en production |
+| **Conteneurisation** | Docker Compose | Orchestration Ollama + FastAPI |
+
+---
+
+## 📊 Fonctionnalités principales
+
+### 👥 Gestion des utilisateurs et permissions
+- **Authentification sécurisée** : Laravel Sanctum (tokens API)
+- **Contrôle d'accès par rôle (RBAC)** : Admin, Responsable, Utilisateur
+- **Audit des actions** : Journalisation complète des modifications et accès sensibles
+- **Gestion des espaces collaboratifs** : Espaces partagés avec contrôle d'accès granulaire
+
+### 📄 Gestion des documents
+- **Versioning** : Historique complet de chaque document (création, modifications)
+- **Organisation hiérarchique** : Dossiers et sous-dossiers
+- **Métadonnées enrichies** : Tags, catégories, descriptions, commentaires
+- **Support multiformat** : PDF, DOCX, et autres (extraction de texte intégrée)
+- **Recherche avancée** : Recherche textuelle et sémantique
+
+### 🤖 Intelligence Artificielle
+- **Classification automatique** : TF-IDF + ML (KNN, RandomForest, XGBoost)
+- **Embeddings sémantiques** : Recherche intelligente par sens (similarity search)
+- **Résumés de documents** : Extraction et résumé automatique du contenu
+- **Génération de rapports** : Rapports d'activité générés par LLM local (Ollama)
+
+### 🔔 Notifications et collaboration
+- **Système de notifications** : Alertes sur actions (partages, commentaires)
+- **Commentaires** : Discussion sur documents
+- **Actualités** : Feed d'activités du département
 
 ---
 
@@ -53,20 +97,31 @@ get-2m/
 
 ---
 
-## 🧱 Stack technique
+## 🧱 Stack technique détaillé
 
-| Couche | Technologie |
-|---|---|
-| Backend | Laravel 11 (PHP 8.3) |
-| ORM | Eloquent |
-| Base de données | MySQL (SQLite en local par défaut, voir `.env.example`) |
-| Authentification | Laravel Sanctum |
-| Autorisation (RBAC) | Middleware `CheckRole` (rôles : `admin`, `responsable`, `user`) |
-| Cache / Sessions | Redis (recommandé en production) |
-| Analyse statique | PHPStan / Larastan (niveau 5) |
-| Module IA — exploration | Notebooks Jupyter (`ged-ai/`) : scikit-learn, sentence-transformers, sumy, XGBoost |
-| Module IA — production | Service FastAPI (`ged_ai_api/`) |
-| Résumé de rapports | LLM local via Ollama (Mistral 7B / Llama 3 8B) — aucune API payante |
+| Catégorie | Technologie | Détails |
+|-----------|-------------|---------|
+| **Backend API** | Laravel 11, PHP 8.3 | Framework web robuste et sécurisé |
+| **ORM & Migrations** | Eloquent, Laravel Migrations | Gestion de la base de données typée |
+| **Base de données** | MySQL (production), SQLite (développement) | SGBD relationnel haute performance |
+| **Authentification** | Laravel Sanctum | Tokens API sans état, sécurité OAuth 2.0 |
+| **Autorisation** | Middleware CheckRole (RBAC) | Contrôle granulaire par rôles |
+| **Cache & Sessions** | Redis | Optimisation production + état distribué |
+| **Validation JSON** | Middleware ValidateJson | Garantit format avant traitement |
+| **Rate Limiting** | Laravel throttle + RateLimit custom | Protection contre abus |
+| **Logging & Audit** | LogActivity middleware | Traçabilité conforme |
+| **API Uniformité** | ApiEnvelope middleware | Format JSON standardisé |
+| **Gestion erreurs** | ApiException + Handler custom | Erreurs structurées pour le frontend |
+| **Analyse statique** | PHPStan + Larastan (niveau 5) | Détection d'erreurs sans exécution |
+| **Tests** | Pest / PHPUnit | Couverture unitaire et intégration |
+| **Frontend** | Vite, Vue/React | Build moderne et hot reload (optionnel) |
+| **Module IA** | Python 3.11 | Exploration et prototypage IA |
+| **IA — ML** | scikit-learn, XGBoost, sentence-transformers | Classification, embeddings |
+| **IA — Résumé** | sumy, spaCy | Extraction et génération de résumés |
+| **IA — LLM** | Ollama + Mistral/Llama 3 | Génération de texte locale, sans API |
+| **IA API** | FastAPI | Service haute performance pour IA |
+| **Conteneurisation** | Docker Compose | Orchestration multi-conteneurs (Ollama, FastAPI) |
+| **Analyse statique Python** | pylint / mypy (optionnel) | Qualité du code IA |
 
 ---
 
@@ -158,13 +213,147 @@ autorisé sur l'infrastructure interne (installation manuelle d'Ollama).
 
 ---
 
-## ✅ Qualité de code
+## ✅ Qualité de code et CI/CD
+
+### Outils de qualité
 
 ```bash
-composer audit              # audit des dépendances PHP
-vendor/bin/phpstan analyse  # analyse statique (config progressive : phpstan.neon + baseline)
-php artisan test             # tests Pest/PHPUnit
+# Audit des dépendances PHP
+composer audit
+
+# Analyse statique progressive (niveau 5)
+vendor/bin/phpstan analyse
+# (config progressive : phpstan.neon + phpstan-baseline.neon pour éviter saturation)
+
+# Tests unitaires et intégration
+php artisan test
+# ou : vendor/bin/pest
+
+# Linting JavaScript/Vite (si frontend)
+npm run lint
+npm run build
 ```
 
-À intégrer en CI (GitHub Actions) : `composer audit` + `phpstan` + tests à
-chaque pull request.
+### Intégration CI (GitHub Actions) — Recommandations
+
+À mettre en place :
+- ✅ **Audit** : `composer audit` — dépendances vulnérables
+- ✅ **Static Analysis** : `phpstan analyse` — erreurs sans exécution
+- ✅ **Tests** : `php artisan test` — couverture minimale
+- ✅ **Database** : Migrations testées sur base clean
+- ✅ **API Contract** : Validation format JSON / endpoints
+
+### Baseline et progression
+
+- `phpstan-baseline.neon` : Erreurs connues à corriger progressivement
+- Augmentation du niveau de strictité au fil du temps (actuellement niveau 5)
+
+---
+
+## 📖 Documentation et références
+
+- **[ged_ai_api/README.md](./ged_ai_api/README.md)** — Installation d'Ollama, contrat API FastAPI
+- **[docs/laravel_report_snippet.md](./docs/laravel_report_snippet.md)** — Exemple d'intégration Laravel → FastAPI
+- **Configuration** : `.env.example` — variables essentielles (DB, Redis, Ollama URL)
+- **Notebooks IA** : `ged-ai/` — Code source ML, à exécuter avant deployment
+
+---
+
+## 🔄 Workflow de développement
+
+### Branche principale
+- `main` : Production-ready, testé et auditée
+- `develop` : Branche d'intégration (tests avant merge vers main)
+
+### Avant un commit/PR
+1. ✅ Tester localement : `php artisan test`
+2. ✅ Analyser : `vendor/bin/phpstan analyse`
+3. ✅ Auditer : `composer audit`
+4. ✅ Formater si nécessaire (PSR-12 automatique via IDE)
+
+### Pull Request
+- Description claire des changements
+- Au moins une revue avant merge
+- CI doit être verte (tests + analysis + audit)
+
+---
+
+## 🛠️ Dépannage et FAQ
+
+### Laravel n'écoute pas sur http://localhost:8000
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+# ou vérifier le port 8000 n'est pas utilisé
+```
+
+### Migrations ne s'appliquent pas
+
+```bash
+php artisan migrate --force  # force sur production
+php artisan migrate:rollback  # revenir en arrière si nécessaire
+```
+
+### Ollama n'est pas accessible
+
+Vérifier que Docker est lancé et le conteneur tourne :
+```bash
+docker-compose ps
+docker-compose logs ged-ai-api  # logs du service FastAPI
+```
+
+### Embeddings obsolètes
+
+Réexécuter les notebooks dans l'ordre (01 → 02 → 03 → 04) pour régénérer les artefacts.
+
+---
+
+## 🚀 Déploiement
+
+### Environnement de production
+
+1. **Variables d'environnement** (`.env`) :
+   - `APP_DEBUG=false`
+   - `CACHE_DRIVER=redis`
+   - `SESSION_DRIVER=redis`
+   - Coordonnées de la DB de production
+
+2. **Préparation** :
+   ```bash
+   composer install --no-dev
+   php artisan config:cache
+   php artisan route:cache
+   php artisan view:cache
+   php artisan migrate --force
+   ```
+
+3. **Services** :
+   - **Ollama + FastAPI** : Orchestrés via Docker Compose
+   - **Laravel** : Serveur applicatif (Apache/Nginx + PHP-FPM)
+   - **Redis** : Cache distribué et session store
+
+4. **Monitoring** :
+   - Logs d'activité (audit trail)
+   - Métriques Laravel (si New Relic / Datadog)
+   - Santé des services : health checks
+
+---
+
+## 📧 Support et contribution
+
+- **Département** : Systèmes IT et Développement, SOREAD-2M
+- **Questions** : Consultez les docs du projet ou les README spécifiques
+- **Bugs** : Ouvrir une issue avec reproduction
+- **Contributions** : Fork → Branch → PR avec tests
+
+---
+
+## 📄 Licence et conformité
+
+- Projet interne SOREAD-2M
+- Données sensibles : aucune exposition publique (Ollama local)
+- Audit trail : traçabilité conforme
+
+---
+
+**Dernière mise à jour** : Juillet 2026
