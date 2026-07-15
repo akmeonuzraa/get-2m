@@ -2,3 +2,9 @@ fastapi
 uvicorn[standard]
 requests
 pydantic
+scikit-learn
+sentence-transformers
+joblib
+numpy
+sumy
+

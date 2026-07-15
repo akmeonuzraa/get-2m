@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Services\AiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -58,6 +59,7 @@ class DocumentController extends BaseCrudController
     /**
      * Surcharge store() pour gérer l'upload de fichier + création
      * automatique d'une version 1 dans document_versions.
+     * Appelle AiService pour la classification du texte si disponible.
      */
     public function store(Request $request): JsonResponse
     {
@@ -75,6 +77,9 @@ class DocumentController extends BaseCrudController
         $file = $request->file('file');
         $path = $file->store('documents');
 
+        // Prepare keywords from classification or use provided ones
+        $keywords = $validated['keywords'] ?? [];
+
         $document = Document::create([
             'title'              => $validated['title'],
             'description'        => $validated['description'] ?? null,
@@ -83,7 +88,7 @@ class DocumentController extends BaseCrudController
             'file_type'          => $file->getClientOriginalExtension(),
             'mime_type'          => $file->getMimeType(),
             'file_size'          => $file->getSize(),
-            'keywords'           => $validated['keywords'] ?? null,
+            'keywords'           => $keywords,
             'service'            => $user->service,
             'space_id'           => $validated['space_id'] ?? null,
             'folder_id'          => $validated['folder_id'] ?? null,
@@ -98,6 +103,40 @@ class DocumentController extends BaseCrudController
             'uploaded_by'       => $user->id,
         ]);
 
+        // Try to classify document (non-blocking)
+        $this->classifyDocumentAsync($document);
+
         return response()->json($document, 201);
+    }
+
+    /**
+     * Classify document using AiService (non-blocking, silently fails if unavailable).
+     */
+    protected function classifyDocumentAsync(Document $document): void
+    {
+        try {
+            $aiService = new AiService();
+
+            // For now, extract minimal text from filename for classification
+            // In production, this would extract text from the file itself (PDF, DOCX, etc.)
+            $textToClassify = $document->original_filename . ' ' . ($document->description ?? '');
+
+            $result = $aiService->classify($textToClassify);
+
+            if ($result && isset($result['tags']) && is_array($result['tags'])) {
+                // Update keywords with AI classification results
+                $currentKeywords = $document->keywords ?? [];
+                if (!is_array($currentKeywords)) {
+                    $currentKeywords = [];
+                }
+
+                // Merge AI tags with existing keywords
+                $mergedKeywords = array_unique(array_merge($currentKeywords, $result['tags']));
+                $document->update(['keywords' => array_values($mergedKeywords)]);
+            }
+        } catch (Throwable $e) {
+            // Silently ignore any errors - the document is already created
+            \Log::debug('Document classification failed', ['error' => $e->getMessage()]);
+        }
     }
 }
