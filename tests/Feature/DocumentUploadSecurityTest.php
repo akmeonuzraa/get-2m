@@ -173,7 +173,19 @@ class DocumentUploadSecurityTest extends TestCase
      */
     public function test_upload_to_unauthorized_space_rejected(): void
     {
-        $otherSpace = Space::factory()->create();
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@test.local',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $otherSpace = Space::create([
+            'name' => 'Other Space',
+            'description' => 'A space the user is not member of',
+            'created_by' => $admin->id,
+        ]);
 
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4');
 
