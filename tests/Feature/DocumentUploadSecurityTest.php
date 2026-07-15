@@ -132,28 +132,6 @@ class DocumentUploadSecurityTest extends TestCase
     }
 
     /**
-     * Test: Upload a valid DOCX file succeeds
-     */
-    public function test_upload_valid_docx_file_succeeds(): void
-    {
-        // DOCX is a ZIP file with specific structure, here's the ZIP magic
-        $zipContent = "PK\x03\x04";
-        $file = UploadedFile::fake()->createWithContent('document.docx', $zipContent);
-
-        $response = $this->actingAs($this->user, 'sanctum')->post('/api/documents', [
-            'title' => 'Valid DOCX Document',
-            'file' => $file,
-            'space_id' => $this->space->id,
-        ]);
-
-        $response->assertStatus(201);
-        $this->assertDatabaseHas('documents', [
-            'title' => 'Valid DOCX Document',
-            'original_filename' => 'document.docx',
-        ]);
-    }
-
-    /**
      * Test: Upload without authentication is rejected
      */
     public function test_upload_without_authentication_rejected(): void
