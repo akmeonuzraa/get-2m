@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import {
   FileText, FileSpreadsheet, File, Eye, Download, Trash2, Pencil, Plus, Search,
   FolderOpen, X, Share2, RotateCcw, ChevronLeft, ChevronRight, Trash,
-  AlertCircle, RefreshCw, LayoutGrid,
+  AlertCircle, RefreshCw, LayoutGrid, Check, Copy, Mail, Users, Link as LinkIcon,
+  CheckCircle, Clock, Archive
 } from "lucide-react";
 
 interface DocumentItem {
@@ -93,6 +94,24 @@ export default function GedPage() {
   const [showCorbeille, setShowCorbeille] = useState(false);
   const [confirmRestoreId, setConfirmRestoreId] = useState<number | null>(null);
   const [confirmDeletePermanentId, setConfirmDeletePermanentId] = useState<number | null>(null);
+  
+  // États pour les modales
+  const [detailDoc, setDetailDoc] = useState<DocumentItem | null>(null);
+  const [shareDoc, setShareDoc] = useState<DocumentItem | null>(null);
+  const [editDoc, setEditDoc] = useState<DocumentItem | null>(null);
+  const [editForm, setEditForm] = useState({ nom: "", description: "", dossier: "" });
+  
+  // États pour les notifications
+  const [toast, setToast] = useState<{ message: string; type: string } | null>(null);
+  
+  // États pour le partage
+  const [shareEmail, setShareEmail] = useState("");
+  const [sharePermission, setSharePermission] = useState("read");
+  const [copiedLink, setCopiedLink] = useState(false);
+  
+  // États pour le téléchargement
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -124,15 +143,96 @@ export default function GedPage() {
     return `${t.color} ${start}deg ${(acc / total) * 360}deg`;
   }).join(", ");
 
+  // ========== FONCTIONS DES BOUTONS ==========
+
+  // Téléchargement
+  const handleDownload = (doc: DocumentItem) => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    const interval = setInterval(() => {
+      setDownloadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsDownloading(false);
+          setToast({ message: `✅ "${doc.nom}" téléchargé avec succès !`, type: "success" });
+          setTimeout(() => setToast(null), 3000);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 200);
+  };
+
+  // Partager
+  const handleShare = (doc: DocumentItem) => {
+    setShareDoc(doc);
+    setShareEmail("");
+    setSharePermission("read");
+  };
+
+  const handleSendShare = () => {
+    if (!shareEmail.trim()) {
+      setToast({ message: "⚠️ Veuillez entrer une adresse email", type: "error" });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    setToast({ message: `📧 Document partagé avec ${shareEmail} (${sharePermission === "read" ? "Lecture" : sharePermission === "edit" ? "Modification" : "Administration"})`, type: "success" });
+    setShareDoc(null);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`https://plateforme-2m.com/document/${shareDoc?.id}`);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  // Modifier
+  const openEdit = (doc: DocumentItem) => {
+    setEditDoc(doc);
+    setEditForm({ nom: doc.nom, description: doc.description, dossier: doc.dossier });
+  };
+
+  const saveEdit = () => {
+    if (!editDoc) return;
+    setDocuments((docs) =>
+      docs.map((d) =>
+        d.id === editDoc.id
+          ? { ...d, nom: editForm.nom, description: editForm.description, dossier: editForm.dossier }
+          : d
+      )
+    );
+    setEditDoc(null);
+    setToast({ message: `✅ "${editForm.nom}" modifié avec succès !`, type: "success" });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Voir détails
+  const handleView = (doc: DocumentItem) => {
+    setDetailDoc(doc);
+  };
+
+  // Supprimer
+  const handleDelete = (id: number) => {
+    setDocuments((docs) => docs.map((d) => (d.id === id ? { ...d, supprime: true } : d)));
+    setToast({ message: `🗑️ Document déplacé vers la corbeille`, type: "success" });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Restaurer
   const handleRestore = (id: number) => {
     setDocuments((docs) => docs.map((d) => (d.id === id ? { ...d, supprime: false } : d)));
     setConfirmRestoreId(null);
+    setToast({ message: `✅ Document restauré avec succès !`, type: "success" });
+    setTimeout(() => setToast(null), 3000);
     if (documents.filter((d) => d.id !== id && d.supprime).length === 0) setShowCorbeille(false);
   };
 
   const handleDeletePermanent = (id: number) => {
     setDocuments((docs) => docs.filter((d) => d.id !== id));
     setConfirmDeletePermanentId(null);
+    setToast({ message: `🗑️ Document supprimé définitivement`, type: "success" });
+    setTimeout(() => setToast(null), 3000);
     if (documents.filter((d) => d.id !== id && d.supprime).length === 0) setShowCorbeille(false);
   };
 
@@ -140,11 +240,17 @@ export default function GedPage() {
     if (window.confirm("Voulez-vous vraiment vider la corbeille ? Cette action est irréversible.")) {
       setDocuments((docs) => docs.filter((d) => !d.supprime));
       setShowCorbeille(false);
+      setToast({ message: `🗑️ Corbeille vidée avec succès`, type: "success" });
+      setTimeout(() => setToast(null), 3000);
     }
   };
 
   const handleAddDocument = () => {
-    if (!addForm.nom.trim()) return alert("Le nom du document est obligatoire.");
+    if (!addForm.nom.trim()) {
+      setToast({ message: "⚠️ Le nom du document est obligatoire", type: "error" });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
     const newDoc: DocumentItem = {
       id: Math.max(0, ...documents.map((d) => d.id)) + 1,
       nom: addForm.nom,
@@ -162,15 +268,42 @@ export default function GedPage() {
     setAddForm({ nom: "", description: "", type: "PDF", dossier: "Rapports" });
     setShowAddModal(false);
     setPage(1);
+    setToast({ message: `✅ "${newDoc.nom}" ajouté avec succès !`, type: "success" });
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const handleDelete = (id: number) => setDocuments((docs) => docs.map((d) => (d.id === id ? { ...d, supprime: true } : d)));
   const toggleSelect = (id: number) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  const handleZipDownload = () => { alert(`Téléchargement de ${selected.length} document(s) en ZIP (simulation)`); setSelected([]); };
+  
+  const handleZipDownload = () => {
+    if (selected.length === 0) {
+      setToast({ message: "⚠️ Sélectionnez au moins un document", type: "error" });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    setToast({ message: `📦 Téléchargement de ${selected.length} document(s) en ZIP...`, type: "success" });
+    setSelected([]);
+    setTimeout(() => setToast(null), 3000);
+  };
+
   const toggleCorbeille = () => { setShowCorbeille(!showCorbeille); setPage(1); setSearch(""); setSelected([]); };
 
   return (
     <main className="p-6 bg-[#F7F9FC] min-h-screen font-sans text-[#0E1420]">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5 duration-300">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl border ${
+            toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+            toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+            'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            {toast.type === 'success' && <CheckCircle className="w-5 h-5 text-emerald-500" />}
+            {toast.type === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+            <span className="font-medium text-[14px]">{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.14em] text-[#1456F0] uppercase mb-1.5">GED</p>
@@ -307,16 +440,34 @@ export default function GedPage() {
                       <div className="flex justify-center gap-0.5">
                         {showCorbeille ? (
                           <>
-                            <button title="Restaurer" onClick={() => setConfirmRestoreId(doc.id)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><RotateCcw className="w-3.5 h-3.5 text-[#12A16A]" /></button>
-                            <button title="Supprimer définitivement" onClick={() => setConfirmDeletePermanentId(doc.id)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><Trash2 className="w-3.5 h-3.5 text-[#E5392E]" /></button>
+                            <button title="Restaurer" onClick={() => setConfirmRestoreId(doc.id)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                              <RotateCcw className="w-3.5 h-3.5 text-[#12A16A]" />
+                            </button>
+                            <button title="Supprimer définitivement" onClick={() => setConfirmDeletePermanentId(doc.id)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                              <Trash2 className="w-3.5 h-3.5 text-[#E5392E]" />
+                            </button>
                           </>
                         ) : (
                           <>
-                            <button title="Voir" className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><Eye className="w-3.5 h-3.5 text-[#5C6A82]" /></button>
-                            <button title="Partager" className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><Share2 className="w-3.5 h-3.5 text-[#5C6A82]" /></button>
-                            <button title="Télécharger" className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><Download className="w-3.5 h-3.5 text-[#5C6A82]" /></button>
-                            <button title="Modifier" className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><Pencil className="w-3.5 h-3.5 text-[#5C6A82]" /></button>
-                            <button title="Supprimer" onClick={() => handleDelete(doc.id)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><Trash2 className="w-3.5 h-3.5 text-[#E5392E]" /></button>
+                            <button title="Voir" onClick={() => handleView(doc)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                              <Eye className="w-3.5 h-3.5 text-[#5C6A82]" />
+                            </button>
+                            <button title="Partager" onClick={() => handleShare(doc)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                              <Share2 className="w-3.5 h-3.5 text-[#5C6A82]" />
+                            </button>
+                            <button title="Télécharger" onClick={() => handleDownload(doc)} disabled={isDownloading} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                              {isDownloading ? (
+                                <div className="w-3.5 h-3.5 border-2 border-[#1456F0] border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Download className="w-3.5 h-3.5 text-[#5C6A82]" />
+                              )}
+                            </button>
+                            <button title="Modifier" onClick={() => openEdit(doc)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                              <Pencil className="w-3.5 h-3.5 text-[#5C6A82]" />
+                            </button>
+                            <button title="Supprimer" onClick={() => handleDelete(doc.id)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                              <Trash2 className="w-3.5 h-3.5 text-[#E5392E]" />
+                            </button>
                           </>
                         )}
                       </div>
@@ -368,6 +519,111 @@ export default function GedPage() {
         </div>
       )}
 
+      {/* Modal Détails */}
+      {detailDoc && (
+        <div className="fixed inset-0 bg-[#0E1420]/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FFFFFF] rounded-xl shadow-2xl max-w-md w-full p-6 border border-[#D8DEE9]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[15px] font-semibold flex items-center gap-2">
+                {fileIcon(detailDoc.type)} {detailDoc.nom}
+              </h3>
+              <button onClick={() => setDetailDoc(null)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
+                <X className="w-4 h-4 text-[#5C6A82]" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <p className="text-[13px] text-[#5C6A82]">{detailDoc.description}</p>
+              <div className="flex items-center gap-2 text-[13px]"><span className="text-[#5C6A82]">Dossier :</span><span className="font-medium">{detailDoc.dossier}</span></div>
+              <div className="flex items-center gap-2 text-[13px]"><span className="text-[#5C6A82]">Auteur :</span><span className="font-medium">{detailDoc.auteur}</span></div>
+              <div className="flex items-center gap-2 text-[13px]"><span className="text-[#5C6A82]">Taille :</span><span className="font-medium">{detailDoc.taille}</span></div>
+              <div className="flex items-center gap-2 text-[13px]"><span className="text-[#5C6A82]">Date :</span><span className="font-medium">{detailDoc.date}</span></div>
+              <div>
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-medium border ${detailDoc.status === "validé" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : detailDoc.status === "en-attente" ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                  {detailDoc.status === "validé" ? "✅ Validé" : detailDoc.status === "en-attente" ? "⏳ En attente" : "📦 Archivé"}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={() => setDetailDoc(null)} className="flex-1 px-4 py-2 rounded-lg border border-[#D8DEE9] text-[#2B3242] hover:bg-[#F1F5F9] transition-colors text-[13px] font-medium">Fermer</button>
+              <button onClick={() => handleDownload(detailDoc)} disabled={isDownloading} className="flex-1 px-4 py-2 rounded-lg bg-[#1456F0] text-white text-[13px] font-medium hover:bg-[#0E3FC4] transition-colors flex items-center justify-center gap-2">
+                {isDownloading ? <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> {downloadProgress}%</> : <><Download className="w-3.5 h-3.5" /> Télécharger</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Partager */}
+      {shareDoc && (
+        <div className="fixed inset-0 bg-[#0E1420]/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FFFFFF] rounded-xl shadow-2xl max-w-md w-full p-6 border border-[#D8DEE9]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[15px] font-semibold flex items-center gap-2"><Share2 className="w-4 h-4 text-[#1456F0]" /> Partager "{shareDoc.nom}"</h3>
+              <button onClick={() => setShareDoc(null)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><X className="w-4 h-4 text-[#5C6A82]" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[12px] font-medium text-[#2B3242] block mb-1.5"><Mail className="w-3.5 h-3.5 inline mr-1.5 text-[#5C6A82]" /> Adresse email</label>
+                <input type="email" placeholder="exemple@domaine.com" value={shareEmail} onChange={(e) => setShareEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E3E8F0] bg-[#F7F9FC] text-[13px] focus:outline-none focus:border-[#1456F0] transition-colors" />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-[#2B3242] block mb-1.5"><Users className="w-3.5 h-3.5 inline mr-1.5 text-[#5C6A82]" /> Permissions</label>
+                <select value={sharePermission} onChange={(e) => setSharePermission(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-[#E3E8F0] bg-[#F7F9FC] text-[13px] focus:outline-none focus:border-[#1456F0] transition-colors">
+                  <option value="read">Lecture seule</option>
+                  <option value="edit">Modification</option>
+                  <option value="admin">Administration</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-[#2B3242] block mb-1.5"><LinkIcon className="w-3.5 h-3.5 inline mr-1.5 text-[#5C6A82]" /> Lien de partage</label>
+                <div className="flex gap-2">
+                  <input type="text" value={`https://plateforme-2m.com/document/${shareDoc.id}`} readOnly className="flex-1 px-3 py-2 rounded-lg border border-[#E3E8F0] bg-[#F7F9FC] text-[12px] text-[#5C6A82] cursor-default" />
+                  <button onClick={handleCopyLink} className="px-3 py-2 rounded-lg bg-[#1456F0] text-white hover:bg-[#0E3FC4] transition-colors">{copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}</button>
+                </div>
+                {copiedLink && <p className="text-[11px] text-emerald-600 mt-1">✅ Lien copié !</p>}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setShareDoc(null)} className="flex-1 px-4 py-2 rounded-lg border border-[#D8DEE9] text-[#2B3242] hover:bg-[#F1F5F9] transition-colors text-[13px] font-medium">Annuler</button>
+                <button onClick={handleSendShare} className="flex-1 px-4 py-2 rounded-lg bg-[#1456F0] text-white text-[13px] font-medium hover:bg-[#0E3FC4] transition-colors flex items-center justify-center gap-2"><Share2 className="w-3.5 h-3.5" /> Partager</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Modifier */}
+      {editDoc && (
+        <div className="fixed inset-0 bg-[#0E1420]/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#FFFFFF] rounded-xl shadow-2xl max-w-md w-full p-6 border border-[#D8DEE9]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-[15px] font-semibold flex items-center gap-2"><Pencil className="w-4 h-4 text-[#1456F0]" /> Modifier le document</h3>
+              <button onClick={() => setEditDoc(null)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><X className="w-4 h-4 text-[#5C6A82]" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[12px] font-medium text-[#2B3242] block mb-1.5">Nom du document</label>
+                <input type="text" value={editForm.nom} onChange={(e) => setEditForm({ ...editForm, nom: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-[#E3E8F0] bg-[#F7F9FC] text-[13px] focus:outline-none focus:border-[#1456F0] transition-colors" />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-[#2B3242] block mb-1.5">Description</label>
+                <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="w-full px-3 py-2 rounded-lg border border-[#E3E8F0] bg-[#F7F9FC] text-[13px] focus:outline-none focus:border-[#1456F0] transition-colors resize-none" />
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-[#2B3242] block mb-1.5">Dossier</label>
+                <select value={editForm.dossier} onChange={(e) => setEditForm({ ...editForm, dossier: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-[#E3E8F0] bg-[#F7F9FC] text-[13px] focus:outline-none focus:border-[#1456F0] transition-colors">
+                  {dossiersList.filter((d) => d !== "Tous").map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setEditDoc(null)} className="flex-1 px-4 py-2 rounded-lg border border-[#D8DEE9] text-[#2B3242] hover:bg-[#F1F5F9] transition-colors text-[13px] font-medium">Annuler</button>
+                <button onClick={saveEdit} className="flex-1 px-4 py-2 rounded-lg bg-[#1456F0] text-white text-[13px] font-medium hover:bg-[#0E3FC4] transition-colors">Enregistrer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modales de confirmation */}
       {confirmRestoreId !== null && (
         <ConfirmModal
           icon={<RotateCcw className="w-4 h-4 text-[#12A16A]" />}
@@ -380,6 +636,7 @@ export default function GedPage() {
           onConfirm={() => handleRestore(confirmRestoreId)}
         />
       )}
+      
       {confirmDeletePermanentId !== null && (
         <ConfirmModal
           icon={<AlertCircle className="w-4 h-4 text-[#E5392E]" />}
@@ -393,16 +650,13 @@ export default function GedPage() {
         />
       )}
 
+      {/* Modal Ajouter un document */}
       {showAddModal && (
         <div className="fixed inset-0 bg-[#0E1420]/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#FFFFFF] rounded-xl shadow-2xl max-w-md w-full p-6 border border-[#D8DEE9]">
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-[15px] font-semibold flex items-center gap-2">
-                <Plus className="w-4 h-4 text-[#1456F0]" /> Ajouter un document
-              </h3>
-              <button onClick={() => setShowAddModal(false)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors">
-                <X className="w-4 h-4 text-[#5C6A82]" />
-              </button>
+              <h3 className="text-[15px] font-semibold flex items-center gap-2"><Plus className="w-4 h-4 text-[#1456F0]" /> Ajouter un document</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1.5 rounded-md hover:bg-[#E3E8F0] transition-colors"><X className="w-4 h-4 text-[#5C6A82]" /></button>
             </div>
             <div className="space-y-4">
               <div>
