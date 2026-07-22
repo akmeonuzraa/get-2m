@@ -16,7 +16,7 @@ return new class extends Migration
         }
 
         DB::table('space_members')->whereIn('role', ['owner', 'super_admin'])->update(['role' => 'admin']);
-        DB::table('space_members')->whereIn('role', ['editor', 'writer', 'member'])->update(['role' => 'contributor']);
+        DB::table('space_members')->whereIn('role', ['editor', 'writer', 'member', 'contributeur'])->update(['role' => 'contributor']);
         DB::table('space_members')->whereIn('role', ['viewer', 'guest', 'lecteur'])->update(['role' => 'reader']);
 
         $driver = DB::getDriverName();
