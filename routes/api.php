@@ -22,15 +22,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 });
 Route::middleware(['auth:sanctum', 'active.user', 'role:admin'])->group(function () {
-    Route::get('/test-admin', function () {
-        return response()->json(['message' => 'Accès admin OK']);
-    });
-});
-Route::middleware(['auth:sanctum', 'active.user', 'role:admin'])->group(function () {
-    Route::get('/test-admin', function () {
-        return response()->json(['message' => 'Accès admin OK']);
-    });
-    
     // Users CRUD
     Route::apiResource('/users', UserController::class);
     Route::patch('/users/{user}/toggle-active', [UserController::class, 'toggleActive']);

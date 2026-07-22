@@ -27,4 +27,9 @@ class Space extends Model
                     ->withPivot('role')
                     ->withTimestamps();
     }
+
+    public function hasMember(int $userId): bool
+    {
+        return $this->members()->where('users.id', $userId)->exists();
+    }
 }

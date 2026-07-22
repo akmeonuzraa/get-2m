@@ -29,6 +29,11 @@ class Folder extends Model
         return $this->hasMany(Document::class);
     }
 
+    public function space()
+    {
+        return $this->belongsTo(Space::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

@@ -88,20 +88,16 @@ class AuthController extends Controller
     public function forgotPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email',
         ]);
 
-        $status = Password::sendResetLink($request->only('email'));
+        Password::sendResetLink($request->only('email'));
 
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json([
-                'message' => 'Lien de réinitialisation envoyé par email.'
-            ]);
-        }
-
+        // Always return the same response to avoid leaking which emails are
+        // registered (user enumeration).
         return response()->json([
-            'message' => 'Impossible d\'envoyer le lien. Vérifiez l\'email.'
-        ], 400);
+            'message' => 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.'
+        ]);
     }
 
     //  Réinitialiser le mot de passe

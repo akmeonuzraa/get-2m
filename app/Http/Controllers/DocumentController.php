@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\NotificationController;
 
@@ -35,6 +36,13 @@ class DocumentController extends Controller
             'folder_id' => 'nullable|exists:folders,id',
             'keywords'  => 'nullable|array',
         ]);
+
+        if ($request->space_id && !$request->user()->isAdmin()) {
+            $space = \App\Models\Space::find($request->space_id);
+            if (!$space || !$space->hasMember($request->user()->id)) {
+                return response()->json(['message' => 'Accès refusé à cet espace.'], 403);
+            }
+        }
 
         $file = $request->file('file');
         $path = $file->store('documents', 'public');
@@ -87,6 +95,8 @@ if ($document->space_id) {
 
     public function show(Document $document)
     {
+        Gate::authorize('view', $document);
+
         return response()->json(
             $document->load('uploader:id,name', 'folder:id,name', 'versions')
         );
@@ -94,6 +104,8 @@ if ($document->space_id) {
 
     public function trash(Document $document)
     {
+        Gate::authorize('update', $document);
+
         $document->update([
             'status'     => 'trashed',
             'trashed_at' => now(),
@@ -104,6 +116,8 @@ if ($document->space_id) {
 
     public function restore(Document $document)
     {
+        Gate::authorize('update', $document);
+
         $document->update([
             'status'     => 'active',
             'trashed_at' => null,
@@ -114,6 +128,8 @@ if ($document->space_id) {
 
     public function destroy(Document $document)
     {
+        Gate::authorize('delete', $document);
+
         Storage::disk('public')->delete($document->file_path);
         $document->forceDelete();
 

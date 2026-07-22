@@ -4,11 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Folder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class FolderController extends Controller
 {
     public function index(Request $request)
     {
+        $request->validate([
+            'space_id' => 'required|exists:spaces,id',
+        ]);
+
         $folders = Folder::with('children', 'creator:id,name')
                          ->where('space_id', $request->space_id)
                          ->whereNull('parent_id')
@@ -40,6 +45,8 @@ class FolderController extends Controller
 
     public function update(Request $request, Folder $folder)
     {
+        Gate::authorize('update', $folder);
+
         $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -54,6 +61,8 @@ class FolderController extends Controller
 
     public function destroy(Folder $folder)
     {
+        Gate::authorize('delete', $folder);
+
         $folder->delete();
 
         return response()->json(['message' => 'Dossier supprimé avec succès.']);
