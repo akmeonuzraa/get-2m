@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -55,6 +56,11 @@ class User extends Authenticatable
         return $this->belongsToMany(Space::class, 'space_members')
         ->withPivot('role', 'joined_at')
         ->withTimestamps();
+    }
+
+    public function zakenNotifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
     }
 
 }
