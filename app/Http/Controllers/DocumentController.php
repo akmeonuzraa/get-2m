@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\Space;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\NotificationController;
+use RuntimeException;
 
 class DocumentController extends Controller
 {
@@ -39,45 +43,77 @@ class DocumentController extends Controller
         $file = $request->file('file');
         $path = $file->store('documents', 'public');
 
-        $document = Document::create([
-            'title'             => $request->title,
-            'description'       => $request->description,
-            'file_path'         => $path,
-            'original_filename' => $file->getClientOriginalName(),
-            'file_type'         => $file->getClientOriginalExtension(),
-            'mime_type'         => $file->getMimeType(),
-            'file_size'         => $file->getSize(),
-            'keywords'          => $request->keywords,
-            'service'           => $request->user()->service,
-            'folder_id'         => $request->folder_id,
-            'space_id'          => $request->space_id,
-            'uploaded_by'       => $request->user()->id,
-            'current_version'   => 1,
-            'status'            => 'active',
-        ]);
-          // Notifier les membres de l'espace
-if ($document->space_id) {
-    $space = \App\Models\Space::with('members')->find($document->space_id);
-    foreach ($space->members as $member) {
-        if ($member->id !== $request->user()->id) {
-            NotificationController::notify(
-                $member->id,
-                'document_uploaded',
-                'Nouveau document',
-                $request->user()->name . ' a déposé "' . $document->title . '"',
-                $document
-            );
+        // Storage::store() returns false on failure instead of throwing.
+        // Without this check a document would be persisted with a false/empty
+        // file_path and the upload failure would be silently swallowed.
+        if ($path === false) {
+            throw new RuntimeException('Échec de l\'enregistrement du fichier.');
         }
-    }
-}
-        DocumentVersion::create([
-            'document_id'       => $document->id,
-            'version_number'    => 1,
-            'file_path'         => $path,
-            'original_filename' => $file->getClientOriginalName(),
-            'file_size'         => $file->getSize(),
-            'uploaded_by'       => $request->user()->id,
-        ]);
+
+        try {
+            $document = DB::transaction(function () use ($request, $file, $path) {
+                $document = Document::create([
+                    'title'             => $request->title,
+                    'description'       => $request->description,
+                    'file_path'         => $path,
+                    'original_filename' => $file->getClientOriginalName(),
+                    'file_type'         => $file->getClientOriginalExtension(),
+                    'mime_type'         => $file->getMimeType(),
+                    'file_size'         => $file->getSize(),
+                    'keywords'          => $request->keywords,
+                    'service'           => $request->user()->service,
+                    'folder_id'         => $request->folder_id,
+                    'space_id'          => $request->space_id,
+                    'uploaded_by'       => $request->user()->id,
+                    'current_version'   => 1,
+                    'status'            => 'active',
+                ]);
+
+                DocumentVersion::create([
+                    'document_id'       => $document->id,
+                    'version_number'    => 1,
+                    'file_path'         => $path,
+                    'original_filename' => $file->getClientOriginalName(),
+                    'file_size'         => $file->getSize(),
+                    'uploaded_by'       => $request->user()->id,
+                ]);
+
+                return $document;
+            });
+        } catch (\Throwable $e) {
+            // The DB writes were rolled back, so remove the now-orphaned file
+            // to keep storage consistent and let the error propagate.
+            Storage::disk('public')->delete($path);
+            throw $e;
+        }
+
+        // Notifier les membres de l'espace. Une notification qui échoue ne doit
+        // pas faire échouer l'upload déjà validé, mais l'erreur est journalisée
+        // plutôt que silencieusement ignorée.
+        if ($document->space_id) {
+            $space = Space::with('members')->find($document->space_id);
+            if ($space) {
+                foreach ($space->members as $member) {
+                    if ($member->id !== $request->user()->id) {
+                        try {
+                            NotificationController::notify(
+                                $member->id,
+                                'document_uploaded',
+                                'Nouveau document',
+                                $request->user()->name . ' a déposé "' . $document->title . '"',
+                                $document
+                            );
+                        } catch (\Throwable $e) {
+                            Log::error('Échec de la notification de dépôt de document.', [
+                                'document_id' => $document->id,
+                                'member_id'   => $member->id,
+                                'exception'   => $e,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
 
         return response()->json([
             'message'  => 'Document uploadé avec succès.',
@@ -114,8 +150,19 @@ if ($document->space_id) {
 
     public function destroy(Document $document)
     {
-        Storage::disk('public')->delete($document->file_path);
+        $filePath = $document->file_path;
+
         $document->forceDelete();
+
+        // Delete the file only after the record is gone. A failed deletion here
+        // used to be silently swallowed, leaving orphaned files on disk; log it
+        // so the leftover file can be reconciled.
+        if ($filePath && !Storage::disk('public')->delete($filePath)) {
+            Log::warning('Impossible de supprimer le fichier du document.', [
+                'document_id' => $document->id,
+                'file_path'   => $filePath,
+            ]);
+        }
 
         return response()->json(['message' => 'Document supprimé définitivement.']);
     }
