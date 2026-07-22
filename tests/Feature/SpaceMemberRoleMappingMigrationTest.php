@@ -76,6 +76,7 @@ it('rolls back roles to owner/editor/viewer on SQLite roundtrip', function (): v
         ->and($roles[$members[2]->id])->toBe('viewer');
 
     $tableInfo = DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name='space_members'");
+    expect($tableInfo)->not->toBeEmpty();
     $schemaSql = $tableInfo[0]->sql;
     expect($schemaSql)->toContain("'owner'")
         ->and($schemaSql)->toContain("'editor'")
