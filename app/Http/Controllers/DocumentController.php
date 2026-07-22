@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreDocumentRequest;
 use App\Models\Document;
 use App\Services\AiService;
 use Illuminate\Http\Request;
@@ -109,17 +110,18 @@ class DocumentController extends BaseCrudController
      */
     public function store(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $formRequest = StoreDocumentRequest::createFrom($request);
+        $formRequest->setContainer(app())->setRedirector(app('redirect'));
+        $formRequest->setUserResolver($request->getUserResolver());
+        $formRequest->setRouteResolver($request->getRouteResolver());
 
-        // Vérifie que l'utilisateur simple ne crée que dans SES espaces
-        if (!$user->isAdmin() && !$user->isResponsable() && $request->space_id) {
-            $isMember = $user->spaces()->where('spaces.id', $request->space_id)->exists();
-            if (!$isMember) {
-                return response()->json(['message' => 'Vous n\'êtes pas membre de cet espace.'], 403);
-            }
+        if (! $formRequest->authorize()) {
+            abort(403, 'Vous n\'êtes pas membre de cet espace.');
         }
 
-        $validated = $request->validate($this->storeRules());
+        $user = $request->user();
+
+        $validated = $request->validate($formRequest->rules());
         $file = $request->file('file');
 
         // Validate real MIME type to prevent spoofed files
