@@ -64,10 +64,16 @@ class Handler extends ExceptionHandler
 
         if ($isApi) {
         if ($status >= 500 && ! config('app.debug')) {
-            return response()->json(['error' => ['code' => $status, 'message' => 'Internal Server Error', 'details' => null]], $status);
+            return response()->json([
+                'success' => false,
+                'error' => ['code' => $status, 'message' => 'Internal Server Error', 'details' => null],
+            ], $status);
         }
 
-        $payload = ['error' => ['code' => $status, 'message' => $e->getMessage(), 'details' => null]];
+        $payload = [
+            'success' => false,
+            'error' => ['code' => $status, 'message' => $e->getMessage(), 'details' => null],
+        ];
         if (config('app.debug')) {
             $payload['error']['exception'] = get_class($e);
         }

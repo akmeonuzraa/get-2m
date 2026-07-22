@@ -24,7 +24,7 @@ class CheckRole
             ], 401);
         }
 
-        if (!in_array($user->role, $roles)) {
+        if (!in_array($user->role, $roles, true)) {
             return response()->json([
                 'message' => 'Accès refusé : rôle insuffisant pour cette action.'
             ], 403);
