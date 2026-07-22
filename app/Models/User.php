@@ -33,9 +33,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'last_login_at'     => 'datetime',
-            'is_active'         => 'boolean',
-            'password'          => 'hashed',
+            'last_login_at' => 'datetime',
+            'is_active' => 'boolean',
+            'password' => 'hashed',
         ];
     }
 
@@ -49,5 +49,21 @@ class User extends Authenticatable
     {
         return $this->role === 'responsable';
     }
-    
+
+    /**
+     * The public-facing profile fields safe to expose in API responses.
+     *
+     * @return array<string, mixed>
+     */
+    public function publicProfile(): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'email' => $this->email,
+            'role' => $this->role,
+            'service' => $this->service,
+            'avatar' => $this->avatar,
+        ];
+    }
 }

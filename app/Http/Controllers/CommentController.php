@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Comment;
 use App\Models\News;
+use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
 class CommentController extends Controller
@@ -12,9 +13,9 @@ class CommentController extends Controller
     public function index(News $news)
     {
         $comments = $news->comments()
-                         ->with('user:id,name')
-                         ->latest()
-                         ->get();
+            ->with('user:id,name')
+            ->latest()
+            ->get();
 
         return response()->json($comments);
     }
@@ -32,21 +33,18 @@ class CommentController extends Controller
             'content' => $request->content,
         ]);
 
-        return response()->json([
-            'message' => 'Commentaire ajouté avec succès.',
-            'comment' => $comment->load('user:id,name')
-        ], 201);
+        return ApiResponse::created('Commentaire ajouté avec succès.', [
+            'comment' => $comment->load('user:id,name'),
+        ]);
     }
 
     //  Supprimer un commentaire
     public function destroy(News $news, Comment $comment)
     {
-        if ($comment->user_id !== request()->user()->id && !request()->user()->isAdmin()) {
-            return response()->json(['message' => 'Action non autorisée.'], 403);
-        }
+        $this->denyUnlessOwner($comment, request()->user(), allowAdmin: true);
 
         $comment->delete();
 
-        return response()->json(['message' => 'Commentaire supprimé avec succès.']);
+        return ApiResponse::message('Commentaire supprimé avec succès.');
     }
 }

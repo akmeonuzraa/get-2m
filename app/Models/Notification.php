@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
 {
@@ -19,6 +20,33 @@ class Notification extends Model
         'is_read' => 'boolean',
         'read_at' => 'datetime',
     ];
+
+    /**
+     * Scope notifications belonging to the given user.
+     */
+    public function scopeForUser(Builder $query, int $userId): Builder
+    {
+        return $query->where('user_id', $userId);
+    }
+
+    /**
+     * Scope notifications that have not been read yet.
+     */
+    public function scopeUnread(Builder $query): Builder
+    {
+        return $query->where('is_read', false);
+    }
+
+    /**
+     * Mark this notification as read.
+     */
+    public function markRead(): bool
+    {
+        return $this->update([
+            'is_read' => true,
+            'read_at' => now(),
+        ]);
+    }
 
     public function user()
     {

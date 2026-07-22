@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
@@ -15,24 +15,22 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email'    => 'required|email',
+            'email' => 'required|email',
             'password' => 'required|string',
         ]);
 
         $user = User::where('email', $request->email)->first();
 
         // Vérifier si l'utilisateur existe et le mot de passe est correct
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Les identifiants sont incorrects.'],
             ]);
         }
 
         // Vérifier si le compte est actif
-        if (!$user->is_active) {
-            return response()->json([
-                'message' => 'Votre compte a été désactivé. Contactez l\'administrateur.'
-            ], 403);
+        if (! $user->is_active) {
+            return ApiResponse::forbidden('Votre compte a été désactivé. Contactez l\'administrateur.');
         }
 
         // Mettre à jour la date de dernière connexion
@@ -41,17 +39,9 @@ class AuthController extends Controller
         // Créer le token Sanctum
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Connexion réussie.',
-            'token'   => $token,
-            'user'    => [
-                'id'      => $user->id,
-                'name'    => $user->name,
-                'email'   => $user->email,
-                'role'    => $user->role,
-                'service' => $user->service,
-                'avatar'  => $user->avatar,
-            ]
+        return ApiResponse::message('Connexion réussie.', data: [
+            'token' => $token,
+            'user' => $user->publicProfile(),
         ]);
     }
 
@@ -61,9 +51,7 @@ class AuthController extends Controller
         // Supprimer le token actuel
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'message' => 'Déconnexion réussie.'
-        ]);
+        return ApiResponse::message('Déconnexion réussie.');
     }
 
     //  Profil de l'utilisateur connecté
@@ -71,17 +59,11 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        return response()->json([
-            'id'             => $user->id,
-            'name'           => $user->name,
-            'email'          => $user->email,
-            'role'           => $user->role,
-            'service'        => $user->service,
-            'avatar'         => $user->avatar,
-            'is_active'      => $user->is_active,
-            'last_login_at'  => $user->last_login_at,
-            'created_at'     => $user->created_at,
-        ]);
+        return response()->json(array_merge($user->publicProfile(), [
+            'is_active' => $user->is_active,
+            'last_login_at' => $user->last_login_at,
+            'created_at' => $user->created_at,
+        ]));
     }
 
     //  Mot de passe oublié
@@ -94,22 +76,18 @@ class AuthController extends Controller
         $status = Password::sendResetLink($request->only('email'));
 
         if ($status === Password::RESET_LINK_SENT) {
-            return response()->json([
-                'message' => 'Lien de réinitialisation envoyé par email.'
-            ]);
+            return ApiResponse::message('Lien de réinitialisation envoyé par email.');
         }
 
-        return response()->json([
-            'message' => 'Impossible d\'envoyer le lien. Vérifiez l\'email.'
-        ], 400);
+        return ApiResponse::message('Impossible d\'envoyer le lien. Vérifiez l\'email.', 400);
     }
 
     //  Réinitialiser le mot de passe
     public function resetPassword(Request $request)
     {
         $request->validate([
-            'token'    => 'required',
-            'email'    => 'required|email',
+            'token' => 'required',
+            'email' => 'required|email',
             'password' => 'required|min:8|confirmed',
         ]);
 
@@ -117,19 +95,15 @@ class AuthController extends Controller
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) {
                 $user->forceFill([
-                    'password' => Hash::make($password)
+                    'password' => Hash::make($password),
                 ])->save();
             }
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            return response()->json([
-                'message' => 'Mot de passe réinitialisé avec succès.'
-            ]);
+            return ApiResponse::message('Mot de passe réinitialisé avec succès.');
         }
 
-        return response()->json([
-            'message' => 'Token invalide ou expiré.'
-        ], 400);
+        return ApiResponse::message('Token invalide ou expiré.', 400);
     }
 }

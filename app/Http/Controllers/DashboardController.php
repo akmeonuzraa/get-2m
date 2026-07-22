@@ -16,30 +16,29 @@ class DashboardController extends Controller
         $user = $request->user();
 
         // Documents récents
-        $recentDocuments = Document::with('uploader:id,name', 'folder:id,name')
-            ->where('status', 'active')
+        $recentDocuments = Document::active()
+            ->with('uploader:id,name', 'folder:id,name')
             ->latest()
             ->take(5)
             ->get();
 
         // Dernières actualités
-        $latestNews = News::with('creator:id,name')
-            ->where('status', 'published')
-            ->orderByDesc('is_pinned')
-            ->orderByDesc('published_at')
+        $latestNews = News::published()
+            ->pinnedFirst()
+            ->with('creator:id,name')
             ->take(5)
             ->get();
 
         // Notifications non lues
-        $unreadNotifications = Notification::where('user_id', $user->id)
-            ->where('is_read', false)
+        $unreadNotifications = Notification::forUser($user->id)
+            ->unread()
             ->latest()
             ->take(5)
             ->get();
 
         // Stats personnelles
-        $myDocuments = Document::where('uploaded_by', $user->id)
-            ->where('status', 'active')
+        $myDocuments = Document::active()
+            ->where('uploaded_by', $user->id)
             ->count();
 
         $mySpaces = Space::whereHas('members', function ($q) use ($user) {
@@ -50,31 +49,31 @@ class DashboardController extends Controller
         $globalStats = null;
         if ($user->isAdmin()) {
             $globalStats = [
-                'total_users'     => User::count(),
-                'total_documents' => Document::where('status', 'active')->count(),
-                'total_spaces'    => Space::count(),
-                'total_news'      => News::where('status', 'published')->count(),
+                'total_users' => User::count(),
+                'total_documents' => Document::active()->count(),
+                'total_spaces' => Space::count(),
+                'total_news' => News::published()->count(),
             ];
         }
 
         return response()->json([
-            'user'                 => [
-                'id'      => $user->id,
-                'name'    => $user->name,
-                'role'    => $user->role,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'role' => $user->role,
                 'service' => $user->service,
             ],
-            'recent_documents'     => $recentDocuments,
-            'latest_news'          => $latestNews,
+            'recent_documents' => $recentDocuments,
+            'latest_news' => $latestNews,
             'unread_notifications' => $unreadNotifications,
-            'my_stats'             => [
+            'my_stats' => [
                 'documents_uploaded' => $myDocuments,
-                'spaces_joined'      => $mySpaces,
-                'unread_notifications' => Notification::where('user_id', $user->id)
-                                                      ->where('is_read', false)
-                                                      ->count(),
+                'spaces_joined' => $mySpaces,
+                'unread_notifications' => Notification::forUser($user->id)
+                    ->unread()
+                    ->count(),
             ],
-            'global_stats'         => $globalStats,
+            'global_stats' => $globalStats,
         ]);
     }
 }

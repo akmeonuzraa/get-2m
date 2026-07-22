@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class News extends Model
 {
@@ -17,9 +18,25 @@ class News extends Model
     ];
 
     protected $casts = [
-        'is_pinned'    => 'boolean',
+        'is_pinned' => 'boolean',
         'published_at' => 'datetime',
     ];
+
+    /**
+     * Scope news that have been published.
+     */
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('status', 'published');
+    }
+
+    /**
+     * Order pinned news first, then by publication date (most recent first).
+     */
+    public function scopePinnedFirst(Builder $query): Builder
+    {
+        return $query->orderByDesc('is_pinned')->orderByDesc('published_at');
+    }
 
     public function creator()
     {
