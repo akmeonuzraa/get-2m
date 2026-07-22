@@ -27,7 +27,10 @@ abstract class BaseCrudController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $items = $this->baseQuery($request)->get();
+        $limit = max(1, min((int) $request->query('limit', 15), 100));
+        $page = max(1, (int) $request->query('page', 1));
+        $items = $this->baseQuery($request)->paginate($limit, ['*'], 'page', $page);
+
         return response()->json($items);
     }
 
