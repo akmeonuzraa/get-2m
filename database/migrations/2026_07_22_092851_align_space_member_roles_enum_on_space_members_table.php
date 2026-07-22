@@ -79,10 +79,44 @@ return new class extends Migration
         $driver = DB::getDriverName();
 
         if ($driver === 'mysql') {
-            DB::statement("ALTER TABLE space_members MODIFY COLUMN role ENUM('owner','editor','viewer') NOT NULL DEFAULT 'viewer'");
+            // Remap data FIRST, then change the column type to avoid strict-mode rejections
             DB::table('space_members')->where('role', 'admin')->update(['role' => 'owner']);
             DB::table('space_members')->where('role', 'contributor')->update(['role' => 'editor']);
             DB::table('space_members')->where('role', 'reader')->update(['role' => 'viewer']);
+            DB::statement("ALTER TABLE space_members MODIFY COLUMN role ENUM('owner','editor','viewer') NOT NULL DEFAULT 'viewer'");
+        } elseif ($driver === 'sqlite') {
+            // Recreate the table with the original schema, remapping roles via CASE WHEN
+            // during INSERT to avoid violating the current CHECK constraint.
+            DB::statement("
+                CREATE TABLE space_members_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    space_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('owner', 'editor', 'viewer')),
+                    joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    created_at DATETIME NULL,
+                    updated_at DATETIME NULL,
+                    FOREIGN KEY(space_id) REFERENCES spaces(id) ON DELETE CASCADE,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    UNIQUE(space_id, user_id)
+                )
+            ");
+
+            DB::statement("
+                INSERT INTO space_members_new (id, space_id, user_id, role, joined_at, created_at, updated_at)
+                SELECT id, space_id, user_id,
+                    CASE role
+                        WHEN 'admin' THEN 'owner'
+                        WHEN 'contributor' THEN 'editor'
+                        WHEN 'reader' THEN 'viewer'
+                        ELSE role
+                    END,
+                    joined_at, created_at, updated_at
+                FROM space_members
+            ");
+
+            DB::statement('DROP TABLE space_members');
+            DB::statement('ALTER TABLE space_members_new RENAME TO space_members');
         }
     }
 };
